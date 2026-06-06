@@ -1,0 +1,12 @@
+.DS_Store
+pkg/
+spec/fixtures/modules/
+spec/fixtures/manifests/
+.vagrant/
+.bundle/
+vendor/
+Gemfile.lock
+.idea/
+.vscode/
+*.swp
+*~
