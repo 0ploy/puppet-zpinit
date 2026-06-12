@@ -1,13 +1,18 @@
 {
-  "name": "zpinit_provider",
-  "version": "0.1.0",
+  "name": "zeroploy-zpinit",
+  "version": "0.2.0",
   "author": "ZeroPloy",
-  "summary": "Adds a zpinit (zpctl) provider to the built-in service resource type",
+  "summary": "Manage zpinit services: a zpctl service provider plus TOML config management",
   "license": "MIT",
-  "source": "https://github.com/0ploy/puppet-zpinit_provider",
-  "project_page": "https://github.com/0ploy/puppet-zpinit_provider",
-  "issues_url": "https://github.com/0ploy/puppet-zpinit_provider/issues",
-  "dependencies": [],
+  "source": "https://github.com/0ploy/puppet-zpinit",
+  "project_page": "https://github.com/0ploy/puppet-zpinit",
+  "issues_url": "https://github.com/0ploy/puppet-zpinit/issues",
+  "dependencies": [
+    {
+      "name": "puppetlabs/stdlib",
+      "version_requirement": ">= 5.0.0 < 10.0.0"
+    }
+  ],
   "operatingsystem_support": [
     {
       "operatingsystem": "Ubuntu",

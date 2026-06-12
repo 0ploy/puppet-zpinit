@@ -1,0 +1,28 @@
+# Example hiera data for the data-driven `zpinit` class.
+#
+#   include zpinit
+#
+# turns each entry below into a zpinit::service. Migrating from supervisord is
+# usually just renaming the top-level key `supervisord::programs` to
+# `zpinit::services`; the inner parameter names are shared.
+---
+zpinit::services:
+  nginx:
+    command: '/usr/sbin/nginx -g "daemon off;"'   # string -> shell-split argv
+    user: 'www-data'
+    autorestart: true
+    priority: 20
+    ready:
+      command: ['curl', '-sf', 'http://localhost/']
+      interval: '200ms'
+      timeout: '10s'
+
+  worker:
+    command: ['/usr/bin/worker', '--queue', 'default']
+    user: 'app'
+    directory: '/srv/app'
+    numprocs: 4                                    # -> replicas = 4
+    stopsignal: 'TERM'
+    stopwaitsecs: 20                               # -> stop_timeout = "20s"
+    environment:
+      LOG_LEVEL: 'info'
