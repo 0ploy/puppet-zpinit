@@ -1,0 +1,16 @@
+---
+# Module defaults consumed via automatic parameter lookup.
+#
+# `merge: hash` makes `zpinit::services` merge across ALL hiera layers (per-node,
+# role, common, ...) instead of the default `first` (highest layer wins, the
+# rest silently dropped). This reproduces the old supervisord behavior of
+#
+#   ensure_resources('supervisord::program', hiera_hash('supervisord::programs', {}))
+#
+# so a layered `zpinit::services:` definition merges the same way
+# `hiera_hash` merged `supervisord::programs`. Switch to `deep` if you want
+# higher layers to override individual service attributes rather than replacing
+# a service's whole hash.
+lookup_options:
+  zpinit::services:
+    merge: hash

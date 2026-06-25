@@ -1,0 +1,14 @@
+---
+# Module-level hiera (data in modules). This is the module's OWN hierarchy and
+# is independent of the environment/server hiera.yaml -- Puppet consults it as
+# the lowest-priority layer for lookups in the `zpinit::` namespace. Operators
+# do not need to touch it; environment-level data still overrides everything
+# here.
+version: 5
+defaults:
+  datadir: data
+  data_hash: yaml_data
+
+hierarchy:
+  - name: 'Module data'
+    path: 'common.yaml'

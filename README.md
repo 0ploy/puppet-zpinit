@@ -79,12 +79,46 @@ zpinit::services:
       LOG_LEVEL: 'info'
 ```
 
+`include zpinit` is all that's needed — no `site.pp` glue, no
+`create_resources`/`ensure_resources`. The class collects `zpinit::services`
+via automatic parameter lookup and iterates it into `zpinit::service`
+resources.
+
+**Layered data merges across the whole hierarchy.** The module ships
+`data/common.yaml` with `lookup_options` setting `merge: hash` for
+`zpinit::services`, so definitions spread across hiera layers (per-node, role,
+common, …) are merged rather than first-layer-wins. This reproduces the old
+`hiera_hash('supervisord::programs', {})` behavior — a node-level service hash
+adds to (and overrides keys in) the common/role-level hashes. To override just
+individual attributes per layer instead of replacing a service's whole hash,
+set `merge: deep` for the key in your own hiera (your data outranks the
+module's). No change to the Puppet server's `hiera.yaml` is required for any of
+this — module data is consulted as the lowest-priority layer automatically.
+
 ### Migrating from `supervisord::program`
 
 `zpinit::service` accepts `supervisord::program`'s parameter names and maps
 them onto zpinit's schema. In most cases migration is renaming the hiera key
 `supervisord::programs` → `zpinit::services` (and dropping the `supervisord`
-class). Mapping:
+class).
+
+The old `site.pp` glue that fanned the hash out into resources —
+
+```puppet
+# before (supervisord)
+ensure_resources('supervisord::program', hiera_hash('supervisord::programs', {}))
+```
+
+— is no longer needed. `include zpinit` does the collection, and the module's
+`merge: hash` `lookup_options` (see [From hiera](#from-hiera)) replaces what
+`hiera_hash` did for the cross-layer merge:
+
+```puppet
+# after (zpinit)
+include zpinit
+```
+
+Parameter mapping:
 
 | `supervisord::program` | zpinit TOML | notes |
 | --- | --- | --- |
