@@ -1,3 +1,9 @@
+## v0.4.0
+
+### Changed
+
+- **`zpinit::service` no longer declares a `Service` resource by default.** The conflated `ensure_process` parameter is replaced by a boolean `manage_service` (default `false`) plus `service_ensure` (`running`/`stopped`, default `running`). By default the define now manages **only** the `services/*.toml` file; set `manage_service => true` to also declare `service { <name>: provider => zpinit }` and wire `File ~> Service`. This prevents duplicate-declaration errors when an upstream module (apache, zabbix, nginx, ...) already owns `Service[X]` — that existing service is flipped to `provider => zpinit` separately, and `zpinit::service` just supplies the TOML. Removal is expressed with `ensure => absent`. `ensure_process` is still accepted (and ignored) so existing `supervisord::programs` data routes through `zpinit::service` without error. Breaking for anyone relying on the old auto-declared service; the module was not yet rolled out, so there are no affected consumers.
+
 ## v0.3.0
 
 ### Features

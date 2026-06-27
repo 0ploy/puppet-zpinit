@@ -13,8 +13,10 @@ does for supervisord. State names and verbs map onto `zpctl`.
 The module ships two layers:
 
 1. **`zpinit::service`** (defined type) — writes the service's
-   `services/*.toml` *and* declares the matching `service` resource. Its
-   parameters mirror [`supervisord::program`](https://github.com/ghoneycutt/puppet-module-supervisord),
+   `services/*.toml`. By default it manages **only the TOML file**; set
+   `manage_service => true` to also declare the matching `service { …: provider
+   => zpinit }` for standalone services with no upstream module. Its parameters
+   mirror [`supervisord::program`](https://github.com/ghoneycutt/puppet-module-supervisord),
    so a hiera `supervisord::programs` hash usually migrates by renaming the
    top-level key to `zpinit::services`. **Use this for new code and for
    migrating off supervisord.** See [Managing service definitions](#managing-service-definitions).
@@ -39,16 +41,21 @@ The module ships two layers:
 ## Managing service definitions
 
 `zpinit::service` writes the service TOML under `$zpinit::services_dir`
-(default `/etc/zpinit/services`) and declares the runtime `service` resource,
-wiring a config edit to a reload automatically:
+(default `/etc/zpinit/services`). By default it manages **only the file** —
+the running state is owned elsewhere (an upstream module's `Service[X]` flipped
+to `provider => zpinit`, the site-level `services` hash, or zpinit autostart),
+so the define never collides with a `Service` another module already declares.
+Set `manage_service => true` to also declare and supervise the service from the
+same resource:
 
 ```puppet
 zpinit::service { 'nginx':
-  command     => ['/usr/sbin/nginx', '-g', 'daemon off;'],
-  user        => 'www-data',
-  autorestart => true,                       # -> restart = "always"
-  environment => { 'TZ' => 'UTC' },
-  ready       => {
+  command        => ['/usr/sbin/nginx', '-g', 'daemon off;'],
+  user           => 'www-data',
+  autorestart    => true,                    # -> restart = "always"
+  manage_service => true,                    # also declare Service[nginx], provider => zpinit
+  environment    => { 'TZ' => 'UTC' },
+  ready          => {
     'command'  => ['curl', '-sf', 'http://localhost/'],
     'interval' => '200ms',
     'timeout'  => '10s',
@@ -56,9 +63,12 @@ zpinit::service { 'nginx':
 }
 ```
 
-That renders `/etc/zpinit/services/050_nginx.toml` and declares
-`service { 'nginx': ensure => running, provider => zpinit }`, with the file
-`~>` notifying the service so edits trigger a `zpctl` reload.
+That renders `/etc/zpinit/services/050_nginx.toml` and, because
+`manage_service => true`, declares `service { 'nginx': ensure => running,
+provider => zpinit }`, with the file `~>` notifying the service so edits trigger
+a `zpctl` reload. Omit `manage_service` (the default) when an upstream module
+already declares `Service[nginx]` — then only the TOML is written and you flip
+that existing service's provider to `zpinit` separately.
 
 ### From hiera
 
@@ -124,7 +134,7 @@ Parameter mapping:
 | --- | --- | --- |
 | `command` (String) | `command` (argv array) | shell-word-split; wrap shell pipelines as `['sh','-c','…']` |
 | `ensure` | file `ensure` | `absent` removes the TOML |
-| `ensure_process` | service state | `running`/`stopped`; `removed` deletes the TOML; `unmanaged` writes TOML only |
+| `ensure_process` | *(accepted, ignored)* | zpinit derives state from `ensure` + `manage_service`; express removal as `ensure => absent` |
 | `autorestart` | `restart` | `true`→`always`, `false`→`never`, `'unexpected'`→`on-failure` |
 | `autostart` | service `enable` | `false` parks the service `.disabled` |
 | `numprocs` | `replicas` | |

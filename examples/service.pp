@@ -1,21 +1,24 @@
-# Example: define and supervise a zpinit service with a single resource.
+# Example: define (and optionally supervise) a zpinit service.
 #
-# zpinit::service writes /etc/zpinit/services/<priority>_<name>.toml AND
-# declares the runtime `service { ...: provider => zpinit }`. A change to the
-# rendered TOML notifies the service, so the provider reloads it (reread +
+# zpinit::service always writes /etc/zpinit/services/<priority>_<name>.toml. By
+# default it manages ONLY that file. With `manage_service => true` it also
+# declares the runtime `service { ...: provider => zpinit }`; a change to the
+# rendered TOML then notifies the service, so the provider reloads it (reread +
 # scoped `zpctl update`, then `start --wait`).
 #
 # Apply inside a container where zpinit is PID 1 and zpctl is on PATH. The
 # module directory must be named `zpinit`:
 #   puppet apply --modulepath=<dir-containing-zpinit> examples/service.pp
 
-# Native form: argv array, zpinit-native parameters.
+# Native, fully-managed form: argv array, zpinit-native parameters,
+# manage_service => true so this one resource both defines and supervises it.
 zpinit::service { 'nginx':
-  command       => ['/usr/sbin/nginx', '-g', 'daemon off;'],
-  user          => 'www-data',
-  restart       => 'always',
-  reload_signal => 'HUP',                    # `zpctl reload nginx` sends HUP
-  ready         => {
+  command        => ['/usr/sbin/nginx', '-g', 'daemon off;'],
+  user           => 'www-data',
+  restart        => 'always',
+  reload_signal  => 'HUP',                   # `zpctl reload nginx` sends HUP
+  manage_service => true,
+  ready          => {
     'command'  => ['curl', '-sf', 'http://localhost/'],
     'interval' => '200ms',
     'timeout'  => '10s',
@@ -24,6 +27,8 @@ zpinit::service { 'nginx':
 
 # supervisord-compatible form: string command (shell-split), supervisord
 # parameter names. This is what a migrated `supervisord::program` looks like.
+# No manage_service here: the TOML is written and the running state is owned
+# elsewhere (zpinit autostart, or an upstream Service flipped to provider zpinit).
 zpinit::service { 'worker':
   command      => '/usr/bin/worker --queue default',
   user         => 'app',
@@ -37,8 +42,9 @@ zpinit::service { 'worker':
   },
 }
 
-# Take a service out of rotation: removes the TOML and stops the process.
+# Take a service out of rotation: removes the TOML (and, with manage_service,
+# stops the process first).
 zpinit::service { 'legacy':
-  command        => ['/usr/bin/legacy'],
-  ensure_process => 'removed',
+  command => ['/usr/bin/legacy'],
+  ensure  => 'absent',
 }

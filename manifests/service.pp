@@ -6,13 +6,13 @@
 # both defines and supervises the process.
 #
 # Migration from supervisord: the supervisord-era parameters
-# (`command`, `ensure_process`, `autorestart`, `numprocs`, `priority`,
+# (`command`, `autorestart`, `numprocs`, `priority`,
 # `stopsignal`, `stopwaitsecs`, `user`, `directory`, `environment`,
 # `redirect_stderr`, `stdout_logfile`/`stderr_logfile`) are accepted under
 # their original names and mapped onto zpinit's schema, so a hiera
 # `supervisord::programs` hash usually migrates by renaming the top-level key
 # to `zpinit::services`. Parameters with no zpinit equivalent
-# (`startsecs`, `startretries`, `exitcodes`, `numprocs_start`, `process_name`,
+# (`ensure_process`, `startsecs`, `startretries`, `exitcodes`, `numprocs_start`, `process_name`,
 # `stopasgroup`, `killasgroup`, `umask`, `serverurl`, the log
 # rotation/capture/events knobs) are accepted-and-ignored so existing data
 # does not have to be stripped first; they are listed at the bottom.
@@ -29,12 +29,19 @@
 #   shell features (pipes, `&&`, redirects, `$VAR`, globs) wrap it yourself as
 #   `['sh', '-c', '...']` -- zpinit execs argv directly with no shell.
 # @param ensure
-#   `present` writes the TOML; `absent` removes it (and stops the service).
-# @param ensure_process
-#   Runtime intent, mapped onto the service resource:
-#   `running` (default) / `stopped` keep the file and set the service state;
-#   `removed` deletes the TOML and stops the service; `unmanaged` writes the
-#   TOML but declares no service resource (zpinit/operator owns runtime).
+#   `present` (default) writes the TOML; `absent` removes it (and, when
+#   `manage_service` is set, stops the service first).
+# @param manage_service
+#   When `false` (default) this define ONLY manages the `services/*.toml` file
+#   and declares NO `service` resource -- the running state is owned elsewhere
+#   (an upstream module's `Service[X]` flipped to `provider => zpinit`, the
+#   site-level `services` hash, or zpinit autostart). When `true` it ALSO
+#   declares `service { <name>: provider => zpinit }` and wires the file to it,
+#   so a single declaration both defines and supervises the process -- use this
+#   for standalone zpinit-native services that have no upstream service.
+# @param service_ensure
+#   Service runtime state when `manage_service` is `true`: `running` (default)
+#   or `stopped`. Ignored when `manage_service` is `false`.
 # @param service_name
 #   zpinit service name (the `name =` TOML key and the service resource
 #   title). Defaults to the resource title. Must match `^[a-zA-Z0-9_-]+$`.
@@ -78,7 +85,8 @@
 define zpinit::service (
   Variant[String[1], Array[String[1], 1]]              $command,
   Enum['present', 'absent']                            $ensure          = 'present',
-  Enum['running', 'stopped', 'removed', 'unmanaged']   $ensure_process  = 'running',
+  Boolean                                              $manage_service  = false,
+  Enum['running', 'stopped']                           $service_ensure  = 'running',
 
   String[1]                                            $service_name    = $title,
   Integer[0, 999]                                      $priority        = 50,
@@ -122,6 +130,10 @@ define zpinit::service (
 
   # --- accepted-and-ignored (no zpinit equivalent; kept so supervisord
   #     hiera does not need stripping before migration) ---
+  # supervisord runtime intent. zpinit derives this from `ensure` +
+  # `manage_service` instead, so this is accepted-and-ignored (removal is
+  # expressed as `ensure => absent`).
+  Optional[Enum['running', 'stopped', 'removed', 'unmanaged']] $ensure_process = undef,
   Optional[Variant[Integer, String]]                  $numprocs_start          = undef,
   Optional[String]                                    $process_name            = undef,
   Optional[Variant[Integer, String]]                  $startsecs               = undef,
@@ -243,14 +255,9 @@ define zpinit::service (
 
   $conf = sprintf('%s/%03d_%s.toml', $dir, $priority, $service_name)
 
-  # $ensure => absent is treated like ensure_process => removed.
-  $effective = $ensure ? {
-    'absent' => 'removed',
-    default  => $ensure_process,
-  }
-  $file_ensure = $effective ? {
-    'removed' => 'absent',
-    default   => 'file',
+  $file_ensure = $ensure ? {
+    'absent' => 'absent',
+    default  => 'file',
   }
 
   file { $conf:
@@ -264,35 +271,30 @@ define zpinit::service (
     },
   }
 
-  case $effective {
-    'running': {
-      service { $service_name:
-        ensure   => running,
-        enable   => pick($autostart, true),
-        provider => 'zpinit',
-      }
-      # Config edits trigger a reload (provider: reread + scoped update / restart).
-      File[$conf] ~> Service[$service_name]
-    }
-    'stopped': {
-      service { $service_name:
-        ensure   => stopped,
-        enable   => pick($autostart, true),
-        provider => 'zpinit',
-      }
-      File[$conf] -> Service[$service_name]
-    }
-    'removed': {
+  # Only declare a service resource when explicitly asked. By default this
+  # define writes the TOML only; the running state is owned elsewhere (an
+  # upstream Service[X] flipped to provider => zpinit, the site `services`
+  # hash, or zpinit autostart), which avoids duplicate Service declarations.
+  if $manage_service {
+    if $ensure == 'absent' {
       # Stop the running process, then remove its definition file.
       service { $service_name:
         ensure   => stopped,
         provider => 'zpinit',
       }
       Service[$service_name] -> File[$conf]
+    } else {
+      service { $service_name:
+        ensure   => $service_ensure,
+        enable   => pick($autostart, true),
+        provider => 'zpinit',
+      }
+      if $service_ensure == 'running' {
+        # Config edits trigger a reload (provider: reread + scoped update / restart).
+        File[$conf] ~> Service[$service_name]
+      } else {
+        File[$conf] -> Service[$service_name]
+      }
     }
-    'unmanaged': {
-      # Write the TOML only; zpinit (or an operator) owns runtime state.
-    }
-    default: {}
   }
 }
