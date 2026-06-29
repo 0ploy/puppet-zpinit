@@ -38,6 +38,36 @@ The module ships two layers:
 - The agent runs as zpinit's UID (root in a normal container): the control
   socket is gated by `SO_PEERCRED`.
 
+## Installing the binaries
+
+The binaries normally ship baked into the image. To have Puppet pin them to a
+specific version (and update them when it drifts), set `zpinit::version`:
+
+```yaml
+# hiera
+zpinit::version: '0.5.1'           # a concrete version (leading 'v' accepted), or 'latest'
+# zpinit::manage_package: true                                        # default; false keeps Puppet off the binaries
+# zpinit::bin_dir: '/usr/local/bin'                                   # default
+# zpinit::download_base_url: 'https://github.com/0ploy/zpinit/releases/download'  # internal mirror override
+```
+
+With `include zpinit`, each of `zpinit` and `zpctl` has its installed
+`--version` checked; on mismatch or absence the **checksum-verified** release
+asset for the node's architecture (`*-linux-amd64` / `*-linux-arm64`) is
+downloaded and installed atomically. Left unset (the default) the binaries are
+left untouched. Requires `curl` and `sha256sum` on the node.
+
+A concrete version is checked **without any network access**. Set
+`zpinit::version: 'latest'` to track the newest release instead: each run
+resolves it via GitHub's `releases/latest` redirect - a single HEAD request (no
+token, and not the rate-limited JSON API) - and the node auto-upgrades when a
+new release lands. Use a pinned version for reproducible builds; use `latest`
+for always-current dev/edge nodes.
+
+Updating the on-disk `zpinit` binary takes effect on the **next container
+start** - PID 1 is not hot-swapped. `zpctl` is a client, so its update is
+effective immediately.
+
 ## Managing service definitions
 
 `zpinit::service` writes the service TOML under `$zpinit::services_dir`

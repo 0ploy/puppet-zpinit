@@ -1,3 +1,9 @@
+## v0.5.0
+
+### Features
+
+- **Install and update the `zpinit` and `zpctl` binaries from GitHub releases via the new `zpinit::version` parameter.** Set `zpinit::version` to a concrete version (e.g. `'0.5.1'`, a leading `v` is accepted) or the literal `'latest'`, and the `zpinit` class pulls in `zpinit::install`, which compares each binary's `--version` (the binaries print `v<version>`) against the target and, only on mismatch or absence, downloads the release asset for the node's architecture (`*-linux-amd64`/`*-linux-arm64`, mapped from the `os.architecture` fact), verifies it against the release `checksums.txt`, and installs it atomically (download to a temp file in `bin_dir`, then `mv` into place) so a partial or tampered download never replaces the live binary. A concrete version is checked with no network access; `'latest'` is resolved on each run via the `releases/latest` redirect (a single HEAD request, no token, not the rate-limited JSON API) and auto-upgrades the node when a new release lands. Left `undef` (the default) the class declares nothing, so binaries baked into the image are untouched and existing nodes are unaffected. A `manage_package` boolean (default `true`) acts as a master switch: set it `false` to keep Puppet's hands off the binaries on a specific node even when a broader hiera layer sets `version`. `bin_dir` (default `/usr/local/bin`) and `download_base_url` (override for an internal mirror) are also exposed on the `zpinit` class. Requires `curl` and `sha256sum` on the node. Updating the on-disk `zpinit` binary takes effect on the next container start (PID 1 is not hot-swapped); `zpctl` updates take effect immediately.
+
 ## v0.4.3
 
 ### Fixed
