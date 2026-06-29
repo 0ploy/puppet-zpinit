@@ -1,3 +1,9 @@
+## v0.4.3
+
+### Fixed
+
+- **Never emit empty-string scalars (e.g. `replicas = ""`) in the TOML.** `replicas`/`cwd` are derived with `pick_default()`, which returns `''` (not `undef`) when all its arguments are unset. The dedup filter only dropped `undef`, so a service without `replicas`/`numprocs` rendered `replicas = ""`, which zpinit's TOML loader rejects (`unknown string "" (only "auto" allowed)`) — and one bad file fails `zpctl update`/`reread` for the whole services directory. The filter now drops empty strings as well as `undef`.
+
 ## v0.4.2
 
 ### Fixed

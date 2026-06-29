@@ -253,7 +253,10 @@ define zpinit::service (
     'reload_signal'       => $reload_signal,
     'reload_command'      => $reload_command,
     'reload_on_change'    => $reload_on_change,
-  }.filter |$k, $v| { $v =~ NotUndef }
+  # Drop undef AND empty-string: pick_default() (used for replicas/cwd above)
+  # returns '' rather than undef when all of its args are unset, and an empty
+  # `replicas = ""` / `cwd = ""` is rejected by zpinit's TOML loader.
+  }.filter |$k, $v| { $v =~ NotUndef and $v != '' }
 
   $table_config = {
     'env'   => $env_map,
