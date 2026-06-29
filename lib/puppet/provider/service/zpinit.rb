@@ -157,6 +157,18 @@ Puppet::Type.type(:service).provide(:zpinit, :parent => :base) do
     # --wait blocks until RUNNING + ready, or exits non-zero on FATAL, so a
     # crash-looping service is reported as a failure rather than converged.
     out = run_zpctl('start', '--wait', resource[:name])
+
+    # First-deploy race: a freshly written .toml is enabled (so `enabled?` is
+    # true and `enable`/`update` was skipped above), but zpinit has not loaded
+    # it into its running set yet, so `start` reports an unknown service. The
+    # file does exist on disk (resolve found it), so load it with a scoped
+    # `update` and retry once.
+    if out.exitstatus == CODE_UNKNOWN_SERVICE && !resolve.nil?
+      upd = run_zpctl('update', resource[:name])
+      raise Puppet::Error, "Could not start #{resource[:name]}: update failed: #{upd}" unless upd.exitstatus == CODE_OK
+      out = run_zpctl('start', '--wait', resource[:name])
+    end
+
     raise Puppet::Error, "Could not start #{resource[:name]}: #{out}" unless out.exitstatus == CODE_OK
   end
 

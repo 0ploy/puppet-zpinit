@@ -1,3 +1,9 @@
+## v0.4.2
+
+### Fixed
+
+- **`start` loads a freshly written service file before failing.** On first deploy a just-written `.toml` is enabled, so `enabled?` is true and the `enable`/`zpctl update` path is skipped — but zpinit has not yet loaded the file into its running set, so `zpctl start` returned `unknown service` and the run failed. `start` now detects that case (unknown service, but the file exists per `resolve`), runs a scoped `zpctl update` to load it, and retries once. Without this, every zpinit-managed service failed to come up on its first Puppet run.
+
 ## v0.4.1
 
 ### Fixed
