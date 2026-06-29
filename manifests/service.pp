@@ -47,7 +47,7 @@
 #   title). Defaults to the resource title. Must match `^[a-zA-Z0-9_-]+$`.
 # @param priority
 #   Lower starts earlier. Rendered as a zero-padded numeric filename prefix
-#   (`050_<name>.toml`); zpinit starts services in filename order and strips
+#   (`0050_<name>.toml`); zpinit starts services in filename order and strips
 #   the prefix to derive the name.
 # @param autorestart
 #   supervisord restart policy. `true` -> `always`, `false` -> `never`,
@@ -89,11 +89,14 @@ define zpinit::service (
   Enum['running', 'stopped']                           $service_ensure  = 'running',
 
   String[1]                                            $service_name    = $title,
-  Integer[0, 999]                                      $priority        = 50,
+  Integer[0, 9999]                                     $priority        = 50,
 
   # --- supervisord-compatible knobs (mapped onto zpinit) ---
-  Optional[Variant[Boolean, Enum['unexpected']]]       $autorestart     = undef,
-  Optional[Boolean]                                    $autostart       = undef,
+  # autostart/autorestart accept loose forms (Boolean or quoted string) because
+  # supervisord::program was untyped and hiera data carries both `true` and
+  # `'true'`; they are coerced below. autorestart also accepts 'unexpected'.
+  Optional[Variant[Boolean, String[1]]]                $autorestart     = undef,
+  Optional[Variant[Boolean, String[1]]]                $autostart       = undef,
   Optional[Integer[1]]                                 $numprocs        = undef,
   Optional[String[1]]                                  $stopsignal      = undef,
   Optional[Integer[0]]                                 $stopwaitsecs    = undef,
@@ -164,9 +167,22 @@ define zpinit::service (
   }
   $command_argv = zpinit::command_array($command)
 
+  # Coerce loose supervisord booleans: hiera carries true/false/yes/no as real
+  # booleans and 'true'/'false' as quoted strings. str2bool(String(...)) handles
+  # both. autorestart additionally allows the literal 'unexpected'.
+  $autostart_bool = $autostart ? {
+    undef   => undef,
+    default => str2bool(String($autostart)),
+  }
+  $autorestart_norm = $autorestart ? {
+    undef        => undef,
+    'unexpected' => 'unexpected',
+    default      => str2bool(String($autorestart)),
+  }
+
   # restart policy: explicit native $restart wins, else derive from supervisord autorestart.
   $restart_policy = $restart ? {
-    undef   => $autorestart ? {
+    undef   => $autorestart_norm ? {
       undef        => undef,
       true         => 'always',
       false        => 'never',
@@ -253,7 +269,7 @@ define zpinit::service (
 
     | HEADER
 
-  $conf = sprintf('%s/%03d_%s.toml', $dir, $priority, $service_name)
+  $conf = sprintf('%s/%04d_%s.toml', $dir, $priority, $service_name)
 
   $file_ensure = $ensure ? {
     'absent' => 'absent',
@@ -286,7 +302,7 @@ define zpinit::service (
     } else {
       service { $service_name:
         ensure   => $service_ensure,
-        enable   => pick($autostart, true),
+        enable   => pick($autostart_bool, true),
         provider => 'zpinit',
       }
       if $service_ensure == 'running' {

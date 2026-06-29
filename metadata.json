@@ -1,6 +1,6 @@
 {
   "name": "zeroploy-zpinit",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "author": "ZeroPloy",
   "summary": "Manage zpinit services: a zpctl service provider plus TOML config management",
   "license": "MIT",

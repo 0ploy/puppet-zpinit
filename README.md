@@ -63,7 +63,7 @@ zpinit::service { 'nginx':
 }
 ```
 
-That renders `/etc/zpinit/services/050_nginx.toml` and, because
+That renders `/etc/zpinit/services/0050_nginx.toml` and, because
 `manage_service => true`, declares `service { 'nginx': ensure => running,
 provider => zpinit }`, with the file `~>` notifying the service so edits trigger
 a `zpctl` reload. Omit `manage_service` (the default) when an upstream module
@@ -138,7 +138,7 @@ Parameter mapping:
 | `autorestart` | `restart` | `true`→`always`, `false`→`never`, `'unexpected'`→`on-failure` |
 | `autostart` | service `enable` | `false` parks the service `.disabled` |
 | `numprocs` | `replicas` | |
-| `priority` | filename prefix | `050_<name>.toml`; lower starts earlier |
+| `priority` | filename prefix | `0050_<name>.toml`; lower starts earlier |
 | `stopsignal` | `stop_signal` | `SIG` prefix optional |
 | `stopwaitsecs` | `stop_timeout` | `→ "<n>s"` |
 | `user` | `user` | |
@@ -229,7 +229,7 @@ non-default socket, set `ZPINIT_SOCKET` in the agent's environment.
   need an explicit `['sh', '-c', '…']`; `zpinit::service` warns when it spots
   shell metacharacters in a string command.
 - **Changing `priority` orphans the old file.** The priority is encoded in the
-  filename (`050_<name>.toml`); changing it writes a new file and leaves the
+  filename (`0050_<name>.toml`); changing it writes a new file and leaves the
   old one behind. Set `zpinit::purge => true` (Puppet owns the whole
   `services/` dir) or remove the stale file out of band. **`purge` deletes any
   TOML not declared in Puppet — do not enable it on images that bake in

@@ -1,3 +1,9 @@
+## v0.4.1
+
+### Fixed
+
+- **Accept loose supervisord parameter forms so real `supervisord::programs` data validates.** `supervisord::program` was untyped, so hiera carries booleans both as real booleans (`true`/`yes`) and as quoted strings (`'true'`/`'false'`). `zpinit::service` now types `autostart`/`autorestart` as `Variant[Boolean, String[1]]` and coerces them with `str2bool` (autorestart still honours `'unexpected'`). `priority` widened from `Integer[0, 999]` to `Integer[0, 9999]` (real data uses `1000`), and the filename prefix is now zero-padded to 4 digits (`0050_<name>.toml`) so priorities ≥ 1000 still sort correctly by filename.
+
 ## v0.4.0
 
 ### Changed
