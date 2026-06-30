@@ -290,10 +290,12 @@ define zpinit::service (
     },
   }
 
-  # Only declare a service resource when explicitly asked. By default this
-  # define writes the TOML only; the running state is owned elsewhere (an
-  # upstream Service[X] flipped to provider => zpinit, the site `services`
-  # hash, or zpinit autostart), which avoids duplicate Service declarations.
+  # Only declare a service resource when explicitly asked. `manage_service`
+  # controls whether a Puppet Service[name] is declared (so other modules can
+  # notify/require it) -- NOT whether zpinit reacts to a file change. By default
+  # the define writes the TOML only; the running state is owned elsewhere (an
+  # upstream Service[X] flipped to provider => zpinit, or the site `services`
+  # hash), which avoids duplicate Service declarations.
   if $manage_service {
     if $ensure == 'absent' {
       # Stop the running process, then remove its definition file.
@@ -315,5 +317,14 @@ define zpinit::service (
         File[$conf] -> Service[$service_name]
       }
     }
+  } else {
+    # No Puppet Service is declared here, but a written/changed/removed TOML
+    # still has to be loaded into zpinit's running set -- zpinit does not watch
+    # its config dir during a run. Notify a shared global `zpctl update` on any
+    # change so the service starts/stops/restarts in the same run instead of
+    # waiting for the next zpinit restart. (With manage_service => true the
+    # Service provider performs the reload, so this path is not needed there.)
+    include zpinit::reload
+    File[$conf] ~> Class['zpinit::reload']
   }
 }
